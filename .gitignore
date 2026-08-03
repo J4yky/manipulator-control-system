@@ -1,0 +1,34 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Go / backend
+backend/bin/
+backend/tmp/
+*.exe
+*.test
+*.out
+
+# Zmienne środowiskowe i dane dostępowe
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Logi i pliki tymczasowe
+*.log
+logs/
+tmp/
+temp/
+
+# Edytory
+.vscode/
+.idea/
+
+# System operacyjny
+.DS_Store
+Thumbs.db
+desktop.ini
