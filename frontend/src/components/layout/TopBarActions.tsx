@@ -1,22 +1,19 @@
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { Button } from "../ui/Button";
+import { SettingsControl } from "../../features/settings/SettingsControl";
+import { useLanguage } from "../../i18n/LanguageContext";
 
 export function TopBarActions() {
+    const { t } = useLanguage();
+
     return (
         <div className="flex items-center gap-3">
-            <Button
-                size="icon"
-                className="group"
-                aria-label="Settings"
-                title="Settings"
-            >
-                <Cog6ToothIcon 
-                    aria-hidden="true"
-                    className="size-5 transition duration-200 ease-out group-hover:rotate-90 group-hover:scale-110" 
-                />
+            <SettingsControl />
+            <Button>
+                {t("logs")}
             </Button>
-            <Button>Logs</Button>
-            <Button variant="primary">Connect</Button>
+            <Button variant="primary">
+                {t("connect")}
+            </Button>
         </div>
     );
 }
