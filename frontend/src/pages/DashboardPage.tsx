@@ -1,6 +1,7 @@
 import { AppLayout } from '../components/layout/AppLayout';
 import { TopBar } from '../components/layout/TopBar';
 import { Panel } from '../components/ui/Panel';
+import { ManualControlPanel } from '../features/manualControl/ManualControlPanel';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export function DashboardPage() {
@@ -12,7 +13,7 @@ export function DashboardPage() {
             </Panel>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2fr_1fr]">
                 <Panel>
-                    <h2>{t("manualControl")}</h2>
+                    <ManualControlPanel />
                 </Panel>
                 <Panel>
                     <h2>{t("cameraPreview")}</h2>

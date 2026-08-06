@@ -13,6 +13,10 @@ export const translations ={
         cameraPreview: "Camera preview",
         systemStatus: "System status",
         disconnect: "Disconnect",
+        axis: "Axis",
+        distance: "Distance",
+        speed: "Speed",
+        move: "Move",
     },
 
     pl: {
@@ -27,6 +31,10 @@ export const translations ={
         cameraPreview: "Podgląd kamery",
         systemStatus: "Stan systemu",
         disconnect: "Rozłącz",
+        axis: "Oś",
+        distance: "Dystans",
+        speed: "Prędkość",
+        move: "Rusz",
     },
 } as const;
 
