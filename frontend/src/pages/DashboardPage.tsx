@@ -1,7 +1,9 @@
 import { AppLayout } from '../components/layout/AppLayout';
 import { TopBar } from '../components/layout/TopBar';
 import { Panel } from '../components/ui/Panel';
+import { CameraPanel } from '../features/camera/CameraPanel';
 import { ManualControlPanel } from '../features/manualControl/ManualControlPanel';
+import { SystemStatusPanel } from '../features/systemStatus/SystemStatusPanel';
 import { useLanguage } from '../i18n/LanguageContext';
 
 export function DashboardPage() {
@@ -16,10 +18,10 @@ export function DashboardPage() {
                     <ManualControlPanel />
                 </Panel>
                 <Panel>
-                    <h2>{t("cameraPreview")}</h2>
+                    <CameraPanel />
                 </Panel>
                 <Panel>
-                    <h2>{t("systemStatus")}</h2>
+                    <SystemStatusPanel />
                 </Panel>
             </div>
             <Panel>

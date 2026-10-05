@@ -1,14 +1,45 @@
 import { useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { useLanguage } from "../../i18n/LanguageContext";
+import type { Axis, MoveCommand } from "../../types/commands";
 
-type Axis = "X" | "Y" | "Z";
+
+type MoveDirection = -1 | 1;
 
 export function ManualControlPanel() {
     const { t } = useLanguage();
     const [selectedAxis, setSelectedAxis] = useState<Axis>("X");
     const [distance, setDistance] = useState("10");
     const [speed, setSpeed] = useState("5");
+
+    function handleMove(direction: MoveDirection) {
+        const distanceValue = Number(distance);
+        const speedValue = Number(speed);
+
+        if (
+            !Number.isFinite(distanceValue) ||
+            !Number.isFinite(speedValue) ||
+            distanceValue <= 0 ||
+            speedValue <= 0
+        ) {
+            console.error("Invalid movement parameters:");
+            return;
+        }
+
+        const command: MoveCommand = {
+            type: "move",
+            requestId: crypto.randomUUID(),
+            axis: selectedAxis,
+            distance: distanceValue * direction,
+            speed: speedValue,
+        };
+
+        
+        const jsonCommand = JSON.stringify(command);
+
+        console.log(command);
+        console.log(jsonCommand);
+    }
 
     return (
         <div className="flex flex-col gap-6">
@@ -74,11 +105,15 @@ export function ManualControlPanel() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-                <Button>{t("move")} -</Button>
-                <Button>{t("move")} +</Button>
+                <Button onClick={() => handleMove(-1)}>
+                    {t("move")} -
+                </Button>
+                <Button onClick={() => handleMove(1)}>
+                    {t("move")} +
+                </Button>
             </div>
 
-            <div className="flex-col gap-2">
+            <div className="flex flex-col gap-2">
                 <p className="text-sm text-slate-400">
                     Selected axis: {selectedAxis}
                 </p>
