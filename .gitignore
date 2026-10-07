@@ -20,7 +20,6 @@ backend/tmp/
 
 # Logi i pliki tymczasowe
 *.log
-logs/
 tmp/
 temp/
 

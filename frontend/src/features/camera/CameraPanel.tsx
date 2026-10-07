@@ -15,8 +15,8 @@ export function CameraPanel() {
     function renderCameraContent() {
         if (cameraState === "streaming") {
             return (
-                <div className="flex aspect-video w-full items-center justify-center bg-black">
-                    Camera streaming...
+                <div className="flex aspect-video rounded-md w-full items-center justify-center bg-black">
+                    {t("cameraStreaming")}
                 </div>
             );
         }
@@ -25,7 +25,7 @@ export function CameraPanel() {
             return (
                 <div className="flex flex-col items-center justify-center min-h-32 gap-2">
                     <ArrowPathIcon aria-hidden="true" className="size-8 animate-spin text-blue-400"/>
-                    <span className="text-sm font-semibold">Connecting to camera...</span>
+                    <span className="text-sm font-semibold">{t("cameraConnecting")}</span>
                 </div>
             );
         }
