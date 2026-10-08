@@ -2,6 +2,8 @@ import { Button } from "../../components/ui/Button";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useLanguage } from "../../i18n/LanguageContext";
 import { useState } from "react";
+import { LogsFilterControl } from "./LogsFilterControll";
+import type { LogSourceFilter } from "./LogsFilterWindow";
 
 type LogsWindowProps = {
     isOpen: boolean;
@@ -57,11 +59,21 @@ export function LogsWindow({
     onClose 
 }: LogsWindowProps) {
     const { t } = useLanguage();
-    const [filter, setFilter] = useState<LogFilter>("all");
-    const filteredLogs = 
-        filter === "all" 
-        ? mockLogs 
-        : mockLogs.filter((log) => log.level === filter);
+
+    const [levelFilter, setLevelFilter] =
+        useState<LogFilter>("all");
+
+    const [sourceFilter, setSourceFilter] =
+        useState<LogSourceFilter>("all");
+
+    const filteredLogs = mockLogs.filter((log) => {
+        const matchesLevel =
+            levelFilter === "all" || log.level === levelFilter;
+        const matchesSource =
+            sourceFilter === "all" || log.source === sourceFilter;
+
+        return matchesLevel && matchesSource;
+    });
 
     function getLogLevelColor(level: LogLevel) {
         if (level === "error") {
@@ -77,7 +89,9 @@ export function LogsWindow({
         <div className={`fixed right-0 top-0 h-screen flex-col w-96 transition-transform duration-300 ease-out ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
             <div className="flex flex-col items-center p-4 bg-slate-800 border-b border-slate-700">
                 <div className="flex justify-between w-full">
-                    <h2 className="text-lg font-semibold">{t("logs")}</h2>
+                    <h2 className="text-lg font-semibold">
+                        {t("logs")}
+                    </h2>
                     <Button onClick={onClose} size="icon" variant="ghost">
                         <XMarkIcon
                         aria-hidden="true"
@@ -86,31 +100,35 @@ export function LogsWindow({
                     </Button>
                 </div>
                 <div className="flex justify-between gap-2">
+                    <LogsFilterControl
+                        value={sourceFilter}
+                        onChange={setSourceFilter}
+                    />
                     <Button
                         size="small"
-                        variant={filter === "all" ? "primary" : "ghost"}
-                        onClick={() => setFilter("all")}
+                        variant={levelFilter === "all" ? "primary" : "ghost"}
+                        onClick={() => setLevelFilter("all")}
                     >
                         All
                     </Button>
                     <Button
                         size="small"
-                        variant={filter === "info" ? "primary" : "ghost"}
-                        onClick={() => setFilter("info")}
+                        variant={levelFilter === "info" ? "primary" : "ghost"}
+                        onClick={() => setLevelFilter("info")}
                     >
                         Info
                     </Button>
                     <Button
                         size="small"
-                        variant={filter === "warning" ? "primary" : "ghost"}
-                        onClick={() => setFilter("warning")}
+                        variant={levelFilter === "warning" ? "primary" : "ghost"}
+                        onClick={() => setLevelFilter("warning")}
                     >
                         Warnings
                     </Button>
                     <Button
                         size="small"
-                        variant={filter === "error" ? "primary" : "ghost"}
-                        onClick={() => setFilter("error")}
+                        variant={levelFilter === "error" ? "primary" : "ghost"}
+                        onClick={() => setLevelFilter("error")}
                     >
                         Errors
                     </Button>
