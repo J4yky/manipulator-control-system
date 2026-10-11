@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { useLanguage } from "../../i18n/LanguageContext";
 import type { Axis, MoveCommand } from "../../types/commands";
+import { sendWebSocketMessage } from "../../services/websocket";
 
 
 type MoveDirection = -1 | 1;
@@ -30,11 +31,11 @@ export function ManualControlPanel() {
             type: "move",
             requestId: crypto.randomUUID(),
             axis: selectedAxis,
-            distance: distanceValue * direction,
-            speed: speedValue,
+            distanceMm: distanceValue * direction,
+            speedMmPerSecond: speedValue,
         };
 
-        
+        sendWebSocketMessage(command);
         const jsonCommand = JSON.stringify(command);
 
         console.log(command);

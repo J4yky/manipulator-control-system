@@ -6,9 +6,10 @@ type CommandBase = {
 
 export type MoveCommand = CommandBase & {
     type: "move";
+    requestId:string
     axis: Axis;
-    distance: number;
-    speed: number;
+    distanceMm: number;
+    speedMmPerSecond: number;
 };
 
 export type HomeCommand = CommandBase & {
