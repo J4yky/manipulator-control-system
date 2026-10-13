@@ -5,7 +5,7 @@ import {
 } from "react";
 
 import type { ConnectionState } from "../../types/events";
-import { setConnectionStateListener } from "../../services/websocket";
+import { setConnectionStateListener, setControllerStateListener } from "../../services/websocket";
 import { ConnectionContext } from "./ConnectionContext";
 
 type ConnectionProviderProps = {
@@ -18,17 +18,25 @@ export function ConnectionProvider({
     const [connectionState, setConnectionState] =
         useState<ConnectionState>("disconnected");
 
+    const [controllerState, setControllerState] =
+        useState<ConnectionState>("disconnected");
+
     useEffect(() => {
         setConnectionStateListener(setConnectionState);
+        setControllerStateListener(setControllerState);
 
         return () => {
             setConnectionStateListener(null);
+            setControllerStateListener(null);
         };
     }, []);
 
     return (
         <ConnectionContext.Provider
-            value={{connectionState}}
+            value={{
+                connectionState,
+                controllerState,
+            }}
         >
             {children}
         </ConnectionContext.Provider>

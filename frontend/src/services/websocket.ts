@@ -9,6 +9,9 @@ let connectionState: ConnectionState = "disconnected";
 let onConnectionStateChange:
     ((state: ConnectionState) => void) | null = null;
 
+let onControllerStateChange:
+    ((state: ConnectionState) => void) | null = null;
+
 function setConnectionState(state: ConnectionState) {
     connectionState = state;
     onConnectionStateChange?.(state);
@@ -22,6 +25,12 @@ export function setConnectionStateListener(
     if (listener) {
         listener(connectionState);
     }
+}
+
+export function setControllerStateListener(
+    listener: ((state: ConnectionState) => void) | null
+) {
+    onControllerStateChange = listener;
 }
 
 export function connectWebSocket() {
@@ -99,6 +108,10 @@ function handleIncomingMessage(rawMessage: string) {
                         "Backend error:",
                         message.message
                     );
+                    break;
+
+                case "controllerState":
+                    onControllerStateChange?.(message.state);
                     break;
 
                 default:

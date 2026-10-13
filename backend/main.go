@@ -30,6 +30,11 @@ type AckEvent struct {
 	RequestID string `json:"requestID"`
 }
 
+type ControllerStateEvent struct {
+	Type  string `json:"type"`
+	State string `json:"state"`
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -45,6 +50,11 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	log.Println("WebSocket client conected")
+
+	err = conn.WriteJSON(ControllerStateEvent{
+		Type:  "controllerState",
+		State: "disconnected",
+	})
 
 	for {
 		_, message, err := conn.ReadMessage()

@@ -3,6 +3,7 @@ import type { ConnectionState } from "../../types/events";
 
 type ConnectionContextValue = {
     connectionState: ConnectionState;
+    controllerState: ConnectionState;
 };
 
 export const ConnectionContext = 
