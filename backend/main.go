@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 
+	"manipulator-control-center/internal/controller"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -14,20 +16,20 @@ type BackendStatus struct {
 
 type MessageHeader struct {
 	Type      string `json:"type"`
-	RequestID string `json:"requestID"`
+	RequestID string `json:"requestId"`
 }
 
 type MoveCommand struct {
 	Type             string  `json:"type"`
-	RequestID        string  `json:"requestID"`
+	RequestID        string  `json:"requestId"`
 	Axis             string  `json:"axis"`
 	DistanceMm       float64 `json:"distanceMm"`
-	SpeedMMPerSecond float64 `json:"speedMMPerSecond"`
+	SpeedMmPerSecond float64 `json:"speedMmPerSecond"`
 }
 
 type AckEvent struct {
 	Type      string `json:"type"`
-	RequestID string `json:"requestID"`
+	RequestID string `json:"requestId"`
 }
 
 type ControllerStateEvent struct {
@@ -41,62 +43,74 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func wsHandler(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("WebSocket upgrade error:", err)
-		return
-	}
-	defer conn.Close()
-
-	log.Println("WebSocket client conected")
-
-	err = conn.WriteJSON(ControllerStateEvent{
-		Type:  "controllerState",
-		State: "disconnected",
-	})
-
-	for {
-		_, message, err := conn.ReadMessage()
+func wsHandler(
+	grbl *controller.GRBLController,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Println("WebSocket disconnected:", err)
-			break
+			log.Println("WebSocket upgrade error:", err)
+			return
+		}
+		defer conn.Close()
+
+		log.Println("WebSocket client conected")
+
+		controllerState := "disconnected"
+		if grbl.IsConnected() {
+			controllerState = "connected"
 		}
 
-		var header MessageHeader
-
-		if err := json.Unmarshal(message, &header); err != nil {
-			log.Println("Invalid JSON:", err)
-			continue
+		if err := conn.WriteJSON(ControllerStateEvent{
+			Type:  "controllerState",
+			State: controllerState,
+		}); err != nil {
+			log.Println("WebSocket write error:", err)
+			return
 		}
 
-		switch header.Type {
-		case "move":
-			var command MoveCommand
+		for {
+			_, message, err := conn.ReadMessage()
+			if err != nil {
+				log.Println("WebSocket disconnected:", err)
+				break
+			}
 
-			if err := json.Unmarshal(message, &command); err != nil {
-				log.Println("Invalid move command:", err)
+			var header MessageHeader
+
+			if err := json.Unmarshal(message, &header); err != nil {
+				log.Println("Invalid JSON:", err)
 				continue
 			}
 
-			log.Printf(
-				"Move command: axis=%s distance=%.2fmm speed=%.2fmm/s",
-				command.Axis,
-				command.DistanceMm,
-				command.SpeedMMPerSecond,
-			)
+			switch header.Type {
+			case "move":
+				var command MoveCommand
 
-			ack := AckEvent{
-				Type:      "ack",
-				RequestID: command.RequestID,
+				if err := json.Unmarshal(message, &command); err != nil {
+					log.Println("Invalid move command:", err)
+					continue
+				}
+
+				log.Printf(
+					"Move command: axis=%s distance=%.2fmm speed=%.2fmm/s",
+					command.Axis,
+					command.DistanceMm,
+					command.SpeedMmPerSecond,
+				)
+
+				ack := AckEvent{
+					Type:      "ack",
+					RequestID: command.RequestID,
+				}
+
+				if err := conn.WriteJSON(ack); err != nil {
+					log.Println("WebSocket write error:", err)
+				}
+
+			default:
+				log.Println("Unknown message type:", header.Type)
 			}
-
-			if err := conn.WriteJSON(ack); err != nil {
-				log.Println("WebSocket write error:", err)
-			}
-
-		default:
-			log.Println("Unknown message type:", header.Type)
 		}
 	}
 }
@@ -109,9 +123,32 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	var grbl controller.GRBLController
+
+	err := grbl.Connect("/dev/ttyACM0", 115200)
+	if err != nil {
+		log.Println("GRBL connection failed:", err)
+	} else {
+		if _, err := grbl.SendCommand("$I"); err != nil {
+			log.Println("GRBL handshake failed:", err)
+
+			if err := grbl.Close(); err != nil {
+				log.Println("GRBL close error:", err)
+			}
+		} else {
+			log.Println("GRBL controller connected")
+		}
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/ws", wsHandler)
+	mux.HandleFunc("/ws", wsHandler(&grbl))
+
+	frontend := http.FileServer(
+		http.Dir("../frontend/dist"),
+	)
+
+	mux.Handle("/", frontend)
 
 	log.Println("Backend listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
