@@ -5,6 +5,10 @@ import type {
 } from "../types/messages";
 
 let socket: WebSocket | null = null;
+
+const websocketUrl =
+        import.meta.env.VITE_WS_URL ?? "ws.//localhost:8080/ws";
+
 let connectionState: ConnectionState = "disconnected";
 let onConnectionStateChange:
     ((state: ConnectionState) => void) | null = null;
@@ -44,7 +48,7 @@ export function connectWebSocket() {
 
     setConnectionState("connecting");
 
-    socket = new WebSocket("ws://localhost:8080/ws");
+    socket = new WebSocket(websocketUrl);
 
     socket.onopen = () => {
         setConnectionState("connected");

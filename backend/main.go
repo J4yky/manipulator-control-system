@@ -93,7 +93,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 			if err := conn.WriteJSON(ack); err != nil {
 				log.Println("WebSocket write error:", err)
-				break
 			}
 
 		default:
