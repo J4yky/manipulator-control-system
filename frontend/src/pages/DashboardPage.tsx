@@ -1,0 +1,32 @@
+import { AppLayout } from "../components/layout/AppLayout";
+import { TopBar } from "../components/layout/TopBar";
+import { Panel } from "../components/ui/Panel";
+import { CameraPanel } from "../features/camera/CameraPanel";
+import { ManualControlPanel } from "../features/manualControl/ManualControlPanel";
+import { SystemStatusPanel } from "../features/systemStatus/SystemStatusPanel";
+import { useLanguage } from "../i18n/LanguageContext";
+
+export function DashboardPage() {
+  const { t } = useLanguage();
+  return (
+    <AppLayout>
+      <Panel>
+        <TopBar />
+      </Panel>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2fr_1fr]">
+        <Panel>
+          <ManualControlPanel />
+        </Panel>
+        <Panel>
+          <CameraPanel />
+        </Panel>
+        <Panel>
+          <SystemStatusPanel />
+        </Panel>
+      </div>
+      <Panel>
+        <h2>{t("disconnect")}</h2>
+      </Panel>
+    </AppLayout>
+  );
+}

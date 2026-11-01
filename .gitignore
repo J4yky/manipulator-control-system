@@ -10,6 +10,7 @@ backend/tmp/
 *.exe
 *.test
 *.out
+backend/manipulator-backend
 
 # Zmienne środowiskowe i dane dostępowe
 .env
@@ -20,7 +21,6 @@ backend/tmp/
 
 # Logi i pliki tymczasowe
 *.log
-logs/
 tmp/
 temp/
 
