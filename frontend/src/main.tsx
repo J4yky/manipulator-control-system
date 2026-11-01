@@ -1,11 +1,11 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
-import { LanguageProvider } from './i18n/LanguageProvider.tsx'
-import { ConnectionProvider } from './features/connection/ConnectionProvider.tsx'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import "./index.css";
+import App from "./App.tsx";
+import { LanguageProvider } from "./i18n/LanguageProvider.tsx";
+import { ConnectionProvider } from "./features/connection/ConnectionProvider.tsx";
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LanguageProvider>
       <ConnectionProvider>
@@ -13,4 +13,4 @@ createRoot(document.getElementById('root')!).render(
       </ConnectionProvider>
     </LanguageProvider>
   </StrictMode>,
-)
+);

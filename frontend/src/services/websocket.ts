@@ -1,131 +1,114 @@
 import type { ConnectionState } from "../types/events";
-import type { 
-    IncomingMessage,
-    OutgoingMessage
-} from "../types/messages";
+import type { IncomingMessage, OutgoingMessage } from "../types/messages";
 
 let socket: WebSocket | null = null;
 
-const websocketUrl =
-        import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
+const websocketUrl = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
 
 let connectionState: ConnectionState = "disconnected";
-let onConnectionStateChange:
-    ((state: ConnectionState) => void) | null = null;
+let onConnectionStateChange: ((state: ConnectionState) => void) | null = null;
 
-let onControllerStateChange:
-    ((state: ConnectionState) => void) | null = null;
+let onControllerStateChange: ((state: ConnectionState) => void) | null = null;
 
 function setConnectionState(state: ConnectionState) {
-    connectionState = state;
-    onConnectionStateChange?.(state);
+  connectionState = state;
+  onConnectionStateChange?.(state);
 }
 
 export function setConnectionStateListener(
-    listener: ((state: ConnectionState) => void) | null
+  listener: ((state: ConnectionState) => void) | null,
 ) {
-    onConnectionStateChange = listener;
+  onConnectionStateChange = listener;
 
-    if (listener) {
-        listener(connectionState);
-    }
+  if (listener) {
+    listener(connectionState);
+  }
 }
 
 export function setControllerStateListener(
-    listener: ((state: ConnectionState) => void) | null
+  listener: ((state: ConnectionState) => void) | null,
 ) {
-    onControllerStateChange = listener;
+  onControllerStateChange = listener;
 }
 
 export function connectWebSocket() {
-    if (
-        socket?.readyState === WebSocket.CONNECTING ||
-        socket?.readyState === WebSocket.OPEN
-    ) {
-        console.log("WebSocket is already connected");
-        return;
-    }
+  if (
+    socket?.readyState === WebSocket.CONNECTING ||
+    socket?.readyState === WebSocket.OPEN
+  ) {
+    console.log("WebSocket is already connected");
+    return;
+  }
 
-    setConnectionState("connecting");
+  setConnectionState("connecting");
 
-    socket = new WebSocket(websocketUrl);
+  socket = new WebSocket(websocketUrl);
 
-    socket.onopen = () => {
-        setConnectionState("connected");
-        console.log("WebSocket connected");
-    };
+  socket.onopen = () => {
+    setConnectionState("connected");
+    console.log("WebSocket connected");
+  };
 
-    socket.onmessage = (event) => {
-        handleIncomingMessage(event.data)
-    };
+  socket.onmessage = (event) => {
+    handleIncomingMessage(event.data);
+  };
 
-    socket.onerror = (error) => {
-        console.error("WebSocket error:", error);
-    };
+  socket.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
 
-    socket.onclose = () => {
-        console.log("WebSocket disconnected");
-        socket = null;
-        setConnectionState("disconnected");
-    };
+  socket.onclose = () => {
+    console.log("WebSocket disconnected");
+    socket = null;
+    setConnectionState("disconnected");
+  };
 }
 
 export function disconnectWebSocket() {
-    if (socket === null) {
-        return;
-    }
+  if (socket === null) {
+    return;
+  }
 
-    if (
-        socket.readyState === WebSocket.CLOSING ||
-        socket.readyState === WebSocket.CLOSED
-    ) {
-        return;
-    }
+  if (
+    socket.readyState === WebSocket.CLOSING ||
+    socket.readyState === WebSocket.CLOSED
+  ) {
+    return;
+  }
 
-    socket.close(1000, "Client disconnected");
+  socket.close(1000, "Client disconnected");
 }
 
 export function sendWebSocketMessage(message: OutgoingMessage) {
-    if (socket?.readyState !== WebSocket.OPEN) {
-        console.error("WebSocket is not connected");
-        return;
-    }
+  if (socket?.readyState !== WebSocket.OPEN) {
+    console.error("WebSocket is not connected");
+    return;
+  }
 
-    socket.send(JSON.stringify(message));
+  socket.send(JSON.stringify(message));
 }
 
 function handleIncomingMessage(rawMessage: string) {
-    try {
-        const message =
-            JSON.parse(rawMessage) as IncomingMessage;
+  try {
+    const message = JSON.parse(rawMessage) as IncomingMessage;
 
-            switch (message.type) {
-                case "ack":
-                    console.log(
-                        "Command acknowledged:",
-                        message.requestId
-                    );
-                    break;
+    switch (message.type) {
+      case "ack":
+        console.log("Command acknowledged:", message.requestId);
+        break;
 
-                case "error":
-                    console.error(
-                        "Backend error:",
-                        message.message
-                    );
-                    break;
+      case "error":
+        console.error("Backend error:", message.message);
+        break;
 
-                case "controllerState":
-                    onControllerStateChange?.(message.state);
-                    break;
+      case "controllerState":
+        onControllerStateChange?.(message.state);
+        break;
 
-                default:
-                    console.log(
-                        "Unhandled backend message:",
-                        message
-                    );
-            }
-            
-    } catch (error) {
-        console.error("Invalid message from backend:", error)
+      default:
+        console.log("Unhandled backend message:", message);
     }
+  } catch (error) {
+    console.error("Invalid message from backend:", error);
+  }
 }

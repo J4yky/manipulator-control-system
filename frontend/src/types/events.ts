@@ -1,19 +1,8 @@
-export type MachineState =
-  | "idle"
-  | "moving"
-  | "homing"
-  | "alarm"
-  | "stopped";
+export type MachineState = "idle" | "moving" | "homing" | "alarm" | "stopped";
 
-export type ConnectionState =
-  | "disconnected"
-  | "connecting"
-  | "connected";
+export type ConnectionState = "disconnected" | "connecting" | "connected";
 
-export type LogLevel =
-  | "info"
-  | "warning"
-  | "error";
+export type LogLevel = "info" | "warning" | "error";
 
 export type MachineStateEvent = {
   type: "machineState";

@@ -7,13 +7,15 @@ export type LanguageContextValue = {
   t: (key: TranslationKey) => string;
 };
 
-export const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
+export const LanguageContext = createContext<LanguageContextValue | undefined>(
+  undefined,
+);
 
 export function useLanguage() {
-    const context = useContext(LanguageContext);
+  const context = useContext(LanguageContext);
 
-    if (context === undefined) {
-        throw new Error("useLanguage must be used within a LanguageProvider");
-    }
-    return context;
+  if (context === undefined) {
+    throw new Error("useLanguage must be used within a LanguageProvider");
+  }
+  return context;
 }
