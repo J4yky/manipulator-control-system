@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"manipulator-control-center/internal/controller"
@@ -46,6 +47,11 @@ type ControllerStateEvent struct {
 	State string `json:"state"`
 }
 
+type WSClient struct {
+	conn    *websocket.Conn
+	writeMu sync.Mutex
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -66,16 +72,21 @@ func wsHandler(
 			log.Println("WebSocket upgrade error:", err)
 			return
 		}
+
+		client := &WSClient{
+			conn: conn,
+		}
+
 		defer conn.Close()
 
-		log.Println("WebSocket client conected")
+		log.Println("WebSocket client connected")
 
 		controllerState := "disconnected"
 		if grbl.IsConnected() {
 			controllerState = "connected"
 		}
 
-		if err := conn.WriteJSON(ControllerStateEvent{
+		if err := client.WriteJSON(ControllerStateEvent{
 			Type:  "controllerState",
 			State: controllerState,
 		}); err != nil {
@@ -122,12 +133,14 @@ func wsHandler(
 				if err != nil {
 					log.Println("Invalid move command:", err)
 
-					conn.WriteJSON(ErrorEvent{
+					if err := client.WriteJSON(ErrorEvent{
 						Type:      "error",
 						RequestID: command.RequestID,
 						Message:   err.Error(),
 						Timestamp: time.Now().Format(time.RFC3339),
-					})
+					}); err != nil {
+						log.Println("WebSocket write error:", err)
+					}
 
 					continue
 				}
@@ -137,15 +150,17 @@ func wsHandler(
 				if err != nil {
 					log.Println("GRBL command error:", err)
 
-					conn.WriteJSON(ErrorEvent{
+					if err := client.WriteJSON(ErrorEvent{
 						Type:      "error",
 						RequestID: command.RequestID,
 						Message:   err.Error(),
 						Timestamp: time.Now().Format(time.RFC3339),
-					})
+					}); err != nil {
+						log.Println("WebSocket write error:", err)
+					}
 
 					if !grbl.IsConnected() {
-						if err := conn.WriteJSON(ControllerStateEvent{
+						if err := client.WriteJSON(ControllerStateEvent{
 							Type:  "controllerState",
 							State: "disconnected",
 						}); err != nil {
@@ -167,7 +182,7 @@ func wsHandler(
 					RequestID: command.RequestID,
 				}
 
-				if err := conn.WriteJSON(ack); err != nil {
+				if err := client.WriteJSON(ack); err != nil {
 					log.Println("WebSocket write error:", err)
 				}
 
@@ -219,6 +234,13 @@ func reconnectGRBL(grbl *controller.GRBLController) {
 		log.Println("[GRBL reconnect] Handshake response:", response)
 		log.Println("[GRBL reconnect] GRBL controller reconnected")
 	}
+}
+
+func (c *WSClient) WriteJSON(v any) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	return c.conn.WriteJSON(v)
 }
 
 func main() {
