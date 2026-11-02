@@ -139,6 +139,15 @@ func wsHandler(
 						Timestamp: time.Now().Format(time.RFC3339),
 					})
 
+					if !grbl.IsConnected() {
+						if err := conn.WriteJSON(ControllerStateEvent{
+							Type:  "controllerState",
+							State: "disconnected",
+						}); err != nil {
+							log.Println("WebSocket write error:", err)
+						}
+					}
+
 					continue
 				}
 
