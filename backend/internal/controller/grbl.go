@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"go.bug.st/serial"
 )
 
 type GRBLController struct {
+	mu   sync.Mutex
 	port serial.Port
 }
 
@@ -17,6 +19,9 @@ func (c *GRBLController) Connect(
 	portName string,
 	baudRate int,
 ) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	mode := &serial.Mode{
 		BaudRate: baudRate,
 	}
@@ -34,6 +39,9 @@ func (c *GRBLController) Connect(
 }
 
 func (c *GRBLController) IsConnected() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	return c.port != nil
 }
 
@@ -41,10 +49,14 @@ func (c *GRBLController) markDisconnected() {
 	if c.port != nil {
 		_ = c.port.Close()
 	}
+
 	c.port = nil
 }
 
 func (c *GRBLController) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.port == nil {
 		return nil
 	}
@@ -60,6 +72,9 @@ func (c *GRBLController) Close() error {
 }
 
 func (c *GRBLController) SendCommand(command string) ([]string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.port == nil {
 		return nil, fmt.Errorf("GRBL controller is not connected")
 	}
