@@ -52,6 +52,11 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+const (
+	grblPort     = "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_24238313635351910130-if00"
+	grblBaudRate = 115200
+)
+
 func wsHandler(
 	grbl *controller.GRBLController,
 ) http.HandlerFunc {
@@ -180,10 +185,41 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+func reconnectGRBL(grbl *controller.GRBLController) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if grbl.IsConnected() {
+			continue
+		}
+
+		log.Println("Attempting to reconnect to GRBL controller...")
+
+		if err := grbl.Connect(grblPort, grblBaudRate); err != nil {
+			log.Println("GRBL reconnection failed:", err)
+			continue
+		}
+
+		if _, err := grbl.SendCommand("$I"); err != nil {
+			log.Println("GRBL handshake failed:", err)
+
+			if err := grbl.Close(); err != nil {
+				log.Println("GRBL close error:", err)
+			}
+
+			continue
+		}
+
+		log.Println("GRBL controller reconnected")
+
+	}
+}
+
 func main() {
 	var grbl controller.GRBLController
 
-	err := grbl.Connect("/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_24238313635351910130-if00", 115200)
+	err := grbl.Connect(grblPort, grblBaudRate)
 	if err != nil {
 		log.Println("GRBL connection failed:", err)
 	} else {
@@ -197,6 +233,8 @@ func main() {
 			log.Println("GRBL controller connected")
 		}
 	}
+
+	go reconnectGRBL(&grbl)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
