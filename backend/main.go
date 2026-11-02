@@ -52,6 +52,11 @@ type WSClient struct {
 	writeMu sync.Mutex
 }
 
+type WSClients struct {
+	mu      sync.Mutex
+	clients map[*WSClient]struct{}
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -65,6 +70,7 @@ const (
 
 func wsHandler(
 	grbl *controller.GRBLController,
+	clients *WSClients,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -77,6 +83,8 @@ func wsHandler(
 			conn: conn,
 		}
 
+		clients.Add(client)
+		defer clients.Remove(client)
 		defer conn.Close()
 
 		log.Println("WebSocket client connected")
@@ -200,7 +208,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-func reconnectGRBL(grbl *controller.GRBLController) {
+func reconnectGRBL(
+	grbl *controller.GRBLController,
+	clients *WSClients,
+) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
@@ -233,6 +244,11 @@ func reconnectGRBL(grbl *controller.GRBLController) {
 
 		log.Println("[GRBL reconnect] Handshake response:", response)
 		log.Println("[GRBL reconnect] GRBL controller reconnected")
+
+		clients.Broadcast(ControllerStateEvent{
+			Type:  "controllerState",
+			State: "connected",
+		})
 	}
 }
 
@@ -241,6 +257,37 @@ func (c *WSClient) WriteJSON(v any) error {
 	defer c.writeMu.Unlock()
 
 	return c.conn.WriteJSON(v)
+}
+
+func NewWSClients() *WSClients {
+	return &WSClients{
+		clients: make(map[*WSClient]struct{}),
+	}
+}
+
+func (c *WSClients) Add(client *WSClient) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.clients[client] = struct{}{}
+}
+
+func (c *WSClients) Remove(client *WSClient) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.clients, client)
+}
+
+func (c *WSClients) Broadcast(v any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for client := range c.clients {
+		if err := client.WriteJSON(v); err != nil {
+			log.Println("WebSocket broadcast error:", err)
+		}
+	}
 }
 
 func main() {
@@ -261,11 +308,13 @@ func main() {
 		}
 	}
 
-	go reconnectGRBL(&grbl)
+	clients := NewWSClients()
+
+	go reconnectGRBL(&grbl, clients)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/ws", wsHandler(&grbl))
+	mux.HandleFunc("/ws", wsHandler(&grbl, clients))
 
 	frontend := http.FileServer(
 		http.Dir("../frontend/dist"),
