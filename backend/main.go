@@ -194,25 +194,30 @@ func reconnectGRBL(grbl *controller.GRBLController) {
 			continue
 		}
 
-		log.Println("Attempting to reconnect to GRBL controller...")
+		log.Println("[GRBL reconnect] Trying to reconnect...")
+		log.Println("[GRBL reconnect] Opening serial port...")
 
 		if err := grbl.Connect(grblPort, grblBaudRate); err != nil {
-			log.Println("GRBL reconnection failed:", err)
+			log.Println("[GRBL reconnect] Open failed:", err)
 			continue
 		}
 
-		if _, err := grbl.SendCommand("$I"); err != nil {
-			log.Println("GRBL handshake failed:", err)
+		log.Println("[GRBL reconnect] Serial port opened")
+		log.Println("[GRBL reconnect] Starting handshake...")
+
+		response, err := grbl.SendCommand("$I")
+		if err != nil {
+			log.Println("[GRBL reconnect] Handshake failed:", err)
 
 			if err := grbl.Close(); err != nil {
-				log.Println("GRBL close error:", err)
+				log.Println("[GRBL reconnect] Close error:", err)
 			}
 
 			continue
 		}
 
-		log.Println("GRBL controller reconnected")
-
+		log.Println("[GRBL reconnect] Handshake response:", response)
+		log.Println("[GRBL reconnect] GRBL controller reconnected")
 	}
 }
 
