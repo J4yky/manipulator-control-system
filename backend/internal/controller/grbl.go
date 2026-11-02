@@ -37,6 +37,13 @@ func (c *GRBLController) IsConnected() bool {
 	return c.port != nil
 }
 
+func (c *GRBLController) markDisconnected() {
+	if c.port != nil {
+		_ = c.port.Close()
+	}
+	c.port = nil
+}
+
 func (c *GRBLController) Close() error {
 	if c.port == nil {
 		return nil
@@ -59,6 +66,7 @@ func (c *GRBLController) SendCommand(command string) ([]string, error) {
 
 	_, err := c.port.Write([]byte(command + "\n"))
 	if err != nil {
+		c.markDisconnected()
 		return nil, err
 	}
 
@@ -81,6 +89,7 @@ func (c *GRBLController) SendCommand(command string) ([]string, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
+		c.markDisconnected()
 		return response, err
 	}
 

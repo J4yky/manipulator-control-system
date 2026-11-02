@@ -174,7 +174,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	var grbl controller.GRBLController
 
-	err := grbl.Connect("/dev/ttyACM0", 115200)
+	err := grbl.Connect("/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_24238313635351910130-if00", 115200)
 	if err != nil {
 		log.Println("GRBL connection failed:", err)
 	} else {
