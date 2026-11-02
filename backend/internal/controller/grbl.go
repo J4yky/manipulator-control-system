@@ -32,6 +32,11 @@ func (c *GRBLController) Connect(
 	}
 
 	c.port = port
+	if err := c.port.SetReadTimeout(2 * time.Second); err != nil {
+		_ = c.port.Close()
+		c.port = nil
+		return err
+	}
 
 	time.Sleep(2 * time.Second)
 
