@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"manipulator-control-center/internal/controller"
+	"manipulator-control-center/internal/motion"
 
 	"github.com/gorilla/websocket"
 )
@@ -30,6 +32,13 @@ type MoveCommand struct {
 type AckEvent struct {
 	Type      string `json:"type"`
 	RequestID string `json:"requestId"`
+}
+
+type ErrorEvent struct {
+	Type      string `json:"type"`
+	RequestID string `json:"requestId,omitempty"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
 }
 
 type ControllerStateEvent struct {
@@ -97,6 +106,46 @@ func wsHandler(
 					command.Axis,
 					command.DistanceMm,
 					command.SpeedMmPerSecond,
+				)
+
+				grblCommand, err := motion.BuildJogCommand(
+					command.Axis,
+					command.DistanceMm,
+					command.SpeedMmPerSecond,
+				)
+
+				if err != nil {
+					log.Println("Invalid move command:", err)
+
+					conn.WriteJSON(ErrorEvent{
+						Type:      "error",
+						RequestID: command.RequestID,
+						Message:   err.Error(),
+						Timestamp: time.Now().Format(time.RFC3339),
+					})
+
+					continue
+				}
+
+				response, err := grbl.SendCommand(grblCommand)
+
+				if err != nil {
+					log.Println("GRBL command error:", err)
+
+					conn.WriteJSON(ErrorEvent{
+						Type:      "error",
+						RequestID: command.RequestID,
+						Message:   err.Error(),
+						Timestamp: time.Now().Format(time.RFC3339),
+					})
+
+					continue
+				}
+
+				log.Printf(
+					"GRBL command accepted: %s response=%v",
+					grblCommand,
+					response,
 				)
 
 				ack := AckEvent{
