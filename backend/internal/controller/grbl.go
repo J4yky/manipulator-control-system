@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"bufio"
 	"fmt"
 	"strings"
 	"sync"
@@ -32,7 +31,7 @@ func (c *GRBLController) Connect(
 	}
 
 	c.port = port
-	if err := c.port.SetReadTimeout(2 * time.Second); err != nil {
+	if err := c.port.SetReadTimeout(500 * time.Millisecond); err != nil {
 		_ = c.port.Close()
 		c.port = nil
 		return err
@@ -90,28 +89,51 @@ func (c *GRBLController) SendCommand(command string) ([]string, error) {
 		return nil, err
 	}
 
+	deadline := time.Now().Add(3 * time.Second)
+
 	var response []string
+	var pending string
+	buffer := make([]byte, 256)
 
-	scanner := bufio.NewScanner(c.port)
+	for time.Now().Before(deadline) {
+		n, err := c.port.Read(buffer)
 
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		response = append(response, line)
-
-		if line == "ok" {
-			return response, nil
+		if err != nil {
+			c.markDisconnected()
+			return response, err
 		}
 
-		if strings.HasPrefix(line, "error:") {
-			return response, fmt.Errorf("GRBL returned %s", line)
+		if n == 0 {
+			continue
+		}
+
+		pending += string(buffer[:n])
+
+		for {
+			newlineIndex := strings.IndexByte(pending, '\n')
+			if newlineIndex == -1 {
+				break
+			}
+
+			line := strings.TrimSpace(pending[:newlineIndex])
+			pending = pending[newlineIndex+1:]
+
+			if line == "" {
+				continue
+			}
+
+			response = append(response, line)
+
+			if line == "ok" {
+				return response, nil
+			}
+
+			if strings.HasPrefix(line, "error:") {
+				return response, fmt.Errorf("GRBL returned %s", line)
+			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		c.markDisconnected()
-		return response, err
-	}
-
-	return response, fmt.Errorf("GRBL response ended without ok or error")
+	c.markDisconnected()
+	return response, fmt.Errorf("GRBL response timeout")
 }
