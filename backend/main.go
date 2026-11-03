@@ -217,6 +217,14 @@ func reconnectGRBL(
 
 	for range ticker.C {
 		if grbl.IsConnected() {
+			if err := grbl.CheckConnection(); err != nil {
+				log.Println("GRBL connection lost:", err)
+
+				clients.Broadcast(ControllerStateEvent{
+					Type:  "controllerState",
+					State: "disconnected",
+				})
+			}
 			continue
 		}
 
