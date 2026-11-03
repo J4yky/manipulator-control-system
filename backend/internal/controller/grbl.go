@@ -89,18 +89,12 @@ func (c *GRBLController) Close() error {
 }
 
 func (c *GRBLController) SendCommand(command string) ([]string, error) {
-	log.Println("[GRBL SendCommand] Waiting for mutex")
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	log.Println("[GRBL SendCommand] Mutex acquired")
 
 	if c.port == nil {
 		return nil, fmt.Errorf("GRBL controller is not connected")
 	}
-
-	log.Println("[GRBL SendCommand] Writing command:", command)
 
 	n, err := c.port.Write([]byte(command + "\n"))
 
@@ -122,8 +116,6 @@ func (c *GRBLController) SendCommand(command string) ([]string, error) {
 	buffer := make([]byte, 256)
 
 	for time.Now().Before(deadline) {
-		log.Println("[GRBL SendCommand] Waiting for read")
-
 		n, err := c.port.Read(buffer)
 
 		log.Printf(
