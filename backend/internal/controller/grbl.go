@@ -171,3 +171,44 @@ func (c *GRBLController) SendCommand(command string) ([]string, error) {
 	c.markDisconnected()
 	return response, fmt.Errorf("GRBL response timeout")
 }
+
+func (c *GRBLController) CheckConnection() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.port == nil {
+		return fmt.Errorf("GRBL controller is not connected")
+	}
+
+	_, err := c.port.Write([]byte{'?'})
+	if err != nil {
+		c.markDisconnected()
+		return err
+	}
+
+	deadline := time.Now().Add(1 * time.Second)
+	buffer := make([]byte, 256)
+	var response string
+
+	for time.Now().Before(deadline) {
+		n, err := c.port.Read(buffer)
+
+		if err != nil {
+			c.markDisconnected()
+			return err
+		}
+
+		if n == 0 {
+			continue
+		}
+
+		response += string(buffer[:n])
+
+		if strings.Contains(response, "<") && strings.Contains(response, ">") {
+			return nil
+		}
+	}
+
+	c.markDisconnected()
+	return fmt.Errorf("GRBL connection timeout")
+}
