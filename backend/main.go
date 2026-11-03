@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"manipulator-control-center/internal/controller"
@@ -46,14 +47,30 @@ type ControllerStateEvent struct {
 	State string `json:"state"`
 }
 
+type WSClient struct {
+	conn    *websocket.Conn
+	writeMu sync.Mutex
+}
+
+type WSClients struct {
+	mu      sync.Mutex
+	clients map[*WSClient]struct{}
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
 
+const (
+	grblPort     = "/dev/serial/by-id/usb-Arduino__www.arduino.cc__0043_24238313635351910130-if00"
+	grblBaudRate = 115200
+)
+
 func wsHandler(
 	grbl *controller.GRBLController,
+	clients *WSClients,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -61,16 +78,23 @@ func wsHandler(
 			log.Println("WebSocket upgrade error:", err)
 			return
 		}
+
+		client := &WSClient{
+			conn: conn,
+		}
+
+		clients.Add(client)
+		defer clients.Remove(client)
 		defer conn.Close()
 
-		log.Println("WebSocket client conected")
+		log.Println("WebSocket client connected")
 
 		controllerState := "disconnected"
 		if grbl.IsConnected() {
 			controllerState = "connected"
 		}
 
-		if err := conn.WriteJSON(ControllerStateEvent{
+		if err := client.WriteJSON(ControllerStateEvent{
 			Type:  "controllerState",
 			State: controllerState,
 		}); err != nil {
@@ -117,12 +141,14 @@ func wsHandler(
 				if err != nil {
 					log.Println("Invalid move command:", err)
 
-					conn.WriteJSON(ErrorEvent{
+					if err := client.WriteJSON(ErrorEvent{
 						Type:      "error",
 						RequestID: command.RequestID,
 						Message:   err.Error(),
 						Timestamp: time.Now().Format(time.RFC3339),
-					})
+					}); err != nil {
+						log.Println("WebSocket write error:", err)
+					}
 
 					continue
 				}
@@ -132,12 +158,23 @@ func wsHandler(
 				if err != nil {
 					log.Println("GRBL command error:", err)
 
-					conn.WriteJSON(ErrorEvent{
+					if err := client.WriteJSON(ErrorEvent{
 						Type:      "error",
 						RequestID: command.RequestID,
 						Message:   err.Error(),
 						Timestamp: time.Now().Format(time.RFC3339),
-					})
+					}); err != nil {
+						log.Println("WebSocket write error:", err)
+					}
+
+					if !grbl.IsConnected() {
+						if err := client.WriteJSON(ControllerStateEvent{
+							Type:  "controllerState",
+							State: "disconnected",
+						}); err != nil {
+							log.Println("WebSocket write error:", err)
+						}
+					}
 
 					continue
 				}
@@ -153,7 +190,7 @@ func wsHandler(
 					RequestID: command.RequestID,
 				}
 
-				if err := conn.WriteJSON(ack); err != nil {
+				if err := client.WriteJSON(ack); err != nil {
 					log.Println("WebSocket write error:", err)
 				}
 
@@ -171,10 +208,100 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+func reconnectGRBL(
+	grbl *controller.GRBLController,
+	clients *WSClients,
+) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if grbl.IsConnected() {
+			if err := grbl.CheckConnection(); err != nil {
+				log.Println("GRBL connection lost:", err)
+
+				clients.Broadcast(ControllerStateEvent{
+					Type:  "controllerState",
+					State: "disconnected",
+				})
+			}
+			continue
+		}
+
+		log.Println("[GRBL reconnect] Trying to reconnect...")
+		log.Println("[GRBL reconnect] Opening serial port...")
+
+		if err := grbl.Connect(grblPort, grblBaudRate); err != nil {
+			log.Println("[GRBL reconnect] Open failed:", err)
+			continue
+		}
+
+		log.Println("[GRBL reconnect] Serial port opened")
+		log.Println("[GRBL reconnect] Starting handshake...")
+
+		response, err := grbl.SendCommand("$I")
+		if err != nil {
+			log.Println("[GRBL reconnect] Handshake failed:", err)
+
+			if err := grbl.Close(); err != nil {
+				log.Println("[GRBL reconnect] Close error:", err)
+			}
+
+			continue
+		}
+
+		log.Println("[GRBL reconnect] Handshake response:", response)
+		log.Println("[GRBL reconnect] GRBL controller reconnected")
+
+		clients.Broadcast(ControllerStateEvent{
+			Type:  "controllerState",
+			State: "connected",
+		})
+	}
+}
+
+func (c *WSClient) WriteJSON(v any) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	return c.conn.WriteJSON(v)
+}
+
+func NewWSClients() *WSClients {
+	return &WSClients{
+		clients: make(map[*WSClient]struct{}),
+	}
+}
+
+func (c *WSClients) Add(client *WSClient) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.clients[client] = struct{}{}
+}
+
+func (c *WSClients) Remove(client *WSClient) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.clients, client)
+}
+
+func (c *WSClients) Broadcast(v any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for client := range c.clients {
+		if err := client.WriteJSON(v); err != nil {
+			log.Println("WebSocket broadcast error:", err)
+		}
+	}
+}
+
 func main() {
 	var grbl controller.GRBLController
 
-	err := grbl.Connect("/dev/ttyACM0", 115200)
+	err := grbl.Connect(grblPort, grblBaudRate)
 	if err != nil {
 		log.Println("GRBL connection failed:", err)
 	} else {
@@ -189,9 +316,13 @@ func main() {
 		}
 	}
 
+	clients := NewWSClients()
+
+	go reconnectGRBL(&grbl, clients)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
-	mux.HandleFunc("/ws", wsHandler(&grbl))
+	mux.HandleFunc("/ws", wsHandler(&grbl, clients))
 
 	frontend := http.FileServer(
 		http.Dir("../frontend/dist"),

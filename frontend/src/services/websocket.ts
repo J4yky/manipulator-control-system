@@ -61,6 +61,7 @@ export function connectWebSocket() {
     console.log("WebSocket disconnected");
     socket = null;
     setConnectionState("disconnected");
+    onControllerStateChange?.("disconnected");
   };
 }
 
